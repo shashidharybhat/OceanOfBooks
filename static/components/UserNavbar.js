@@ -21,7 +21,8 @@ export default {
                             style="text-decoration: none; color: inherit;" to="/">Home</router-link></li>
                     <li class="nav-link" style="color: #23261f"><router-link
                             style="text-decoration: none; color: inherit;" to="/profile">Profile</router-link></li>
-                    <li class="nav-link" style="color: #23261f"><router-link to="/mybooks">My Books</router-link></li>
+                    <li class="nav-link" style="color: #23261f">
+                    <router-link style="text-decoration: none; color: inherit;" to="/mybooks">My Books</router-link></li>
                 </ul>
             </div>
             <div class="ml-auto me-2 d-flex flex-row">

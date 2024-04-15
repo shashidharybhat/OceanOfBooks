@@ -12,6 +12,7 @@ api = Api(prefix='/api')
 book_parser = reqparse.RequestParser()
 book_parser.add_argument('title', type=str, required=True, help='Title is required')
 book_parser.add_argument('section_id', type=int, required=True, help='Section ID is required')
+book_parser.add_argument('author', type=str, required=True, help='Author is required')
 book_parser.add_argument('stock')
 
 user_parser = reqparse.RequestParser()
@@ -22,6 +23,7 @@ user_parser.add_argument('role', type=str, required=True, help='Role is required
 
 section_parser = reqparse.RequestParser()
 section_parser.add_argument('name', type=str, required=True, help='Section name is required')
+section_parser.add_argument('description', type=str, required=True, help='Section description is required')
 
 user_fields = {
     'id': fields.Integer,
@@ -32,7 +34,13 @@ user_fields = {
 
 section_fields = {
     'id': fields.Integer,
-    'name': fields.String
+    'name': fields.String,
+    'description': fields.String,
+    'books': fields.List(fields.Nested({
+        'id': fields.Integer,
+        'title': fields.String,
+        'stock': fields.Integer
+    }))
 }
 
 book_fields = {
@@ -40,7 +48,8 @@ book_fields = {
     'title': fields.String,
     'section_id': fields.Integer,
     'stock': fields.Integer,
-    'rating': fields.Float
+    'rating': fields.Float,
+    'author': fields.String
 }
 
 class UserListResource(Resource):
@@ -95,8 +104,7 @@ class SectionListResource(Resource):
     @auth_token_required
     def get(self):
         sections = Section.query.all()
-        print(sections)
-        return sections
+        return sections, 200
 
     @marshal_with(section_fields)
     @auth_required('token')
@@ -104,8 +112,8 @@ class SectionListResource(Resource):
     def post(self):
         args = section_parser.parse_args()
         name = args['name']
-        print(name)
-        section = Section(name=name)
+        description = args['description']
+        section = Section(name=name, description=description)
         db.session.add(section)
         db.session.commit()
         return section, 201
@@ -138,10 +146,10 @@ class BookListResource(Resource):
         args = book_parser.parse_args()
         title = args['title']
         section_id = args['section_id']
-        # Default stock is 1 if not provided
         stock = args['stock'] or 1
+        author = args['author']
 
-        book = Book(title=title, section_id=section_id, stock=stock)
+        book = Book(title=title, section_id=section_id, stock=stock, author=author)
         db.session.add(book)
         db.session.commit()
         return book, 201
