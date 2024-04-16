@@ -7,6 +7,8 @@ from sqlalchemy_utils import database_exists, create_database
 from applications.security import user_datastore, security
 from flask_security.utils import hash_password
 from config import LocalDevelopmentConfig
+from applications.workers import celery_init_app
+import flask_excel as excel
 
 app = None
 
@@ -20,10 +22,12 @@ def create_app():
 def registerExtensions(app):
     db.init_app(app)
     api.init_app(app) 
+    excel.init_excel(app)
     security.init_app(app, user_datastore)
     migrate.init_app(app, db, render_as_batch=True)
 
 app = create_app()
+celery_app = celery_init_app(app)
 
 if not database_exists(app.config['SQLALCHEMY_DATABASE_URI']):
     print("Creating database...", app.config['SQLALCHEMY_DATABASE_URI'])

@@ -18,10 +18,11 @@ export default {
             <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
                 <ul class="navbar-nav">
                     <li class="nav-link" style="color: #23261f"><router-link
-                            style="text-decoration: none; color: inherit;" to="/">Dashboard</router-link></li>
+                            style="text-decoration: none; color: inherit;" to="/admin">Dashboard</router-link></li>
                     <li class="nav-link" style="color: #23261f"><router-link
                             style="text-decoration: none; color: inherit;" to="/profile">Profile</router-link></li>
-                    <li class="nav-link" style="color: #23261f"><router-link to="/mybooks">Requests</router-link></li>
+                    <li class="nav-link" style="color: #23261f"><router-link
+                            style="text-decoration: none; color: inherit;" to="/admin/requests">Requests</router-link></li>
                 </ul>
             </div>
             <div class="ml-auto me-2 d-flex flex-row">
@@ -49,10 +50,8 @@ export default {
                 if (this.sessionToken) {
                     this.sessionToken = sessionStorage.getItem('auth-token') || localStorage.getItem('auth-token');
                     this.getCurrentUser();
-                    console.log('Successfully Logged in');
+                    console.log('Welcome' + this.currentUser.username)
                 }
-            } else {
-                console.log('Successfully Logged out');
             }
         });
     },
@@ -69,11 +68,14 @@ export default {
                 if (res.ok) {
                     localStorage.removeItem('auth-token');
                     sessionStorage.removeItem('auth-token');
+                    localStorage.removeItem('user_id');
+                    sessionStorage.removeItem('user_id');
+                    localStorage.removeItem('role');
+                    sessionStorage.removeItem('role');
                     this.sessionToken = null;
                     this.isLoggedIn = false;
                     this.$root.$emit('loginSuccess', false);
-                    this.$router.push('/');
-                    console.log('Logged out');
+                    this.$router.push('/login');
                 }
             } else {
                 this.$router.push('/login');

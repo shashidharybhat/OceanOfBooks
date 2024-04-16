@@ -3,15 +3,23 @@ import UserNavbar from './components/UserNavbar.js';
 import AdminNavbar from './components/AdminNavbar.js';
 
 router.beforeEach((to, from, next) => {
-    if ((to.name !== 'Login' && to.name !== 'Register') && !localStorage.getItem('auth-token') ? true : false) router.push({ path: 'Login' });
-    else next()
-  })
+    const authToken = localStorage.getItem('auth-token');
+    const role = localStorage.getItem('role');
+
+    if (to.name !== 'Login' && to.name !== 'Register' && !authToken) {
+        next({ path: '/Login' });
+    } else if (role === 'librarian' && to.name === 'UserDashboard') {
+        next('/admin');
+    } else {
+        next();
+    }
+});
 
 const app = new Vue({
     template: `
     <div class="container-fluid w-100 p-0">
-        <AdminNavbar v-if="isAdmin" @toggleAuth="toggleAuth"></AdminNavbar>
-        <UserNavbar v-else :isLoggedIn='isLoggedIn' @toggleAuth="toggleAuth"></UserNavbar>
+        <AdminNavbar v-if="isAdmin"></AdminNavbar>
+        <UserNavbar v-else :isLoggedIn='isLoggedIn'></UserNavbar>
         <router-view></router-view>
     </div>
     `,
@@ -28,27 +36,25 @@ const app = new Vue({
             isAdmin: false,
         }
     },
+    created() {
+        this.checkLoginStatus();
+    },
     methods: {
-        toggleAuth() {
-            this.isLoggedIn = !this.isLoggedIn;
+        checkLoginStatus() {
+            const authToken = sessionStorage.getItem('auth-token') || localStorage.getItem('auth-token');
+            const role = sessionStorage.getItem('role') || localStorage.getItem('role');
+            if (authToken && role === 'librarian') {
+                this.isAdmin = true;
+                this.isLoggedIn = true;
+            } else {
+                this.isLoggedIn = !!authToken;
+                this.isAdmin = false;
+            }
         },
     },
-    created() {
-        this.$root.$on('loginSuccess', (logged) => {
-            const authToken = sessionStorage.getItem('auth-token') || localStorage.getItem('auth-token');
-            if (logged) {
-                const current_role = sessionStorage.getItem('role') || localStorage.getItem('role');
-                if (authToken && current_role == 'librarian') {
-                    this.isAdmin = true;
-                    console.log('Welcome Librarian');
-                }else{
-                    this.isAdmin = false;
-                    this.isLoggedIn = true;
-                    console.log('Welcome User');
-                }
-            } else {
-                console.log('Successfully Logged out');
-            }
-        });
-    },
+    watch: {
+        $route() {
+            this.checkLoginStatus();
+        }
+    }
 });

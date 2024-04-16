@@ -53,10 +53,8 @@ export default {
                 if (this.sessionToken) {
                     this.sessionToken = sessionStorage.getItem('auth-token') || localStorage.getItem('auth-token');
                     this.getCurrentUser();
-                    console.log('Successfully Logged in');
+                    console.log('Welcome' + this.currentUser.username)
                 }
-            } else {
-                console.log('Successfully Logged out');
             }
         });
     },
@@ -75,10 +73,12 @@ export default {
                     sessionStorage.removeItem('auth-token');
                     localStorage.removeItem('role');
                     sessionStorage.removeItem('role');
+                    localStorage.removeItem('user_id');
+                    sessionStorage.removeItem('user_id');
                     this.sessionToken = null;
                     this.isLoggedIn = false;
                     this.$root.$emit('loginSuccess', false);
-                    this.$router.push('/');
+                    this.$router.push('/login');
                     console.log('Logged out');
                 }
             } else {
@@ -89,7 +89,7 @@ export default {
             this.$router.push('/register');
         },
         getCurrentUser() {
-            fetch('/api/users/0', {
+            fetch('/api/users/all', {
                 headers: {
                     'Content-Type': 'application/json',
                     'Authentication-Token': this.sessionToken,

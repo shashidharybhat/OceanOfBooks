@@ -1,8 +1,11 @@
 from flask import current_app as app
 from flask import jsonify, render_template, request
 from flask_security.utils import hash_password, verify_password
+from applications.models import User, Book, Section, Request, AccessLog
 from applications.security import user_datastore as datastore
 from flask_security import auth_token_required, current_user, roles_required, auth_required, logout_user, login_user
+from applications.tasks import sendTestEmail
+import flask_excel as excel
 
 @app.route('/')
 @app.route('/home')
@@ -23,7 +26,7 @@ def login():
 
     if verify_password(data.get("password"), user.password):
         login_user(user)
-        return jsonify({"token": user.get_auth_token(), "email": user.email, "role": user.roles[0].name})
+        return jsonify({"token": user.get_auth_token(), "email": user.email, "role": user.roles[0].name, "id": user.id})
     else:
         return jsonify({"message": "Wrong Password"}), 400
     
@@ -35,3 +38,10 @@ def logout():
         return jsonify({'message': 'Logged out successfully'}), 200
     else:
         return jsonify({'message': 'No user logged in'}), 401
+    
+@app.route('/test')
+def test():
+    get_data1 = Book.query.with_entities(Book.title, Book.author).all()
+    csv_out = excel.make_response_from_query_sets(get_data1, ["title", "author"], "csv", file_name="test2.csv")
+    return csv_out
+

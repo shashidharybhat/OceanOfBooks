@@ -20,6 +20,8 @@ class User(db.Model, UserMixin):
     fs_uniquifier = Column(String(64), unique=True, nullable=False)
     roles = relationship('Role', secondary='user_roles')
     requests = relationship('Request', backref='user')
+    access_logs = relationship('AccessLog', backref='user')
+    feedbacks = relationship('Feedback', backref='user')
 
 class Role(db.Model, RoleMixin):
     __tablename__ = 'roles'
@@ -67,10 +69,11 @@ class AccessLog(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    book_id = db.Column(db.Integer, nullable=False)
+    book_id = db.Column(db.Integer, db.ForeignKey('books.id'),nullable=False)
     access_date = db.Column(db.DateTime, nullable=False, default=datetime.now(timezone.utc))
+    return_date = db.Column(db.DateTime)
     expiry_date = db.Column(db.DateTime, nullable=False)
-    status = db.Column(db.String(20), nullable=False, default='active')  # 'active', 'expired', 'revoked'
+    status = db.Column(db.String(20), nullable=False, default='active')  # 'active', 'expired', 'revoked', 'returned'
 
 class Feedback(db.Model):
     __tablename__ = 'feedback'
