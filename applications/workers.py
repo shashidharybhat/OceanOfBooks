@@ -8,4 +8,6 @@ def celery_init_app(app):
 
     celery_app = Celery(app.name, task_cls=FlaskTask)
     celery_app.config_from_object("celeryconfig")
+    celery_app.set_default()
+    celery_app.autodiscover_tasks(["applications.tasks"])
     return celery_app

@@ -20,9 +20,10 @@ export default {
                     <li class="nav-link" style="color: #23261f"><router-link
                             style="text-decoration: none; color: inherit;" to="/admin">Dashboard</router-link></li>
                     <li class="nav-link" style="color: #23261f"><router-link
-                            style="text-decoration: none; color: inherit;" to="/profile">Profile</router-link></li>
-                    <li class="nav-link" style="color: #23261f"><router-link
                             style="text-decoration: none; color: inherit;" to="/admin/requests">Requests</router-link></li>
+                    <li class="nav-link" style="color: #23261f"><router-link
+                            style="text-decoration: none; color: inherit;" to="/admin/stats">Stats</router-link></li>
+                    
                 </ul>
             </div>
             <div class="ml-auto me-2 d-flex flex-row">

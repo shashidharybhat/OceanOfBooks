@@ -19,4 +19,10 @@ class LocalDevelopmentConfig(Config):
     SECURITY_TOKEN_AUTHENTICATION_HEADER = 'Authentication-Token'
     WTF_CSRF_ENABLED = False
     DEBUG = True
-    
+    MAIL_SERVER = 'localhost'
+    MAIL_PORT = 1025
+    MAIL_USE_TLS = False
+    MAIL_USE_SSL = False
+    MAIL_USERNAME = None
+    MAIL_PASSWORD = None
+    MAIL_DEFAULT_SENDER = '21f1002649@ds.study.iitm.ac.in'

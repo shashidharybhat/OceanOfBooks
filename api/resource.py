@@ -2,11 +2,11 @@ from flask_restful import Resource, Api, abort, marshal, fields, reqparse, marsh
 from flask_security import auth_token_required, current_user, hash_password, roles_required, auth_required
 from applications.security import user_datastore
 from applications.extensions import db
-from applications.models import Book, User, Section, Request, AccessLog
+from applications.models import Book, User, Section, Request, AccessLog, Feedback
 from flask import jsonify
-from applications.forms import Registration, Login
-import json
+from sqlalchemy import or_
 from datetime import datetime, timezone, timedelta
+from applications.cache import cache 
 
 api = Api(prefix='/api')
 
@@ -40,6 +40,14 @@ access_log_parser.add_argument('id', type=int)
 access_log_parser.add_argument('user_id', type=int)
 access_log_parser.add_argument('book_id', type=int)
 access_log_parser.add_argument('status', type=str)
+
+feedback_parser = reqparse.RequestParser()
+feedback_parser.add_argument('book_id', type=int, required=True, help='Book ID is required')
+feedback_parser.add_argument('user_id', type=int, required=True, help='User ID is required')
+feedback_parser.add_argument('rating', type=int, required=True, help='Rating is required')
+feedback_parser.add_argument('comment', type=str, required=True, help='Comment is required')
+
+
 
 
 user_fields = {
@@ -85,8 +93,16 @@ access_log_fields = {
     'status': fields.String
 }
 
+feedback_fields = {
+    'id': fields.Integer,
+    'request_id': fields.Integer,
+    'rating': fields.Integer,
+    'comment': fields.String
+}
+
 class UserListResource(Resource):
     @marshal_with(user_fields)
+    @cache.cached(timeout=30)
     def get(self):
         users = User.query.all()
         return users
@@ -180,6 +196,7 @@ class SectionResource(Resource):
 
 class BookListResource(Resource):
     @marshal_with(book_fields)
+    @cache.cached(timeout=30)
     def get(self):
         books = Book.query.all()
         return books
@@ -278,7 +295,9 @@ class BookRequestResource(Resource):
         request.status = status
         db.session.commit()
         if status == 'approved':
-            access_log = AccessLog(user_id=request.user_id, book_id=request.book_id, expiry_date=datetime.now(timezone.utc) + timedelta(days=7))
+            access_log = AccessLog(user_id=request.user_id, book_id=request.book_id, 
+                                   access_date=datetime.now(timezone.utc),
+                                   expiry_date=datetime.now(timezone.utc) + timedelta(days=7))
             db.session.add(access_log)
             db.session.commit()
         return request
@@ -297,8 +316,18 @@ class UserAccessLogResource(Resource):
         user_id = args['user_id']
         book_id = args['book_id']
         status = args['status']
-        accessLog = AccessLog.query.filter_by(user_id=user_id, book_id=book_id).first()
+        if status == 'revoked-Acknowledged':
+            accessLog = AccessLog.query.filter_by(user_id=user_id, book_id=book_id, status='revoked').distinct().first()
+            print(accessLog)
+            accessLog.expiry_date = datetime.now(timezone.utc)
+            accessLog.status = status
+            db.session.commit()
+            return accessLog
+        accessLog = AccessLog.query.filter_by(user_id=user_id, book_id=book_id, status='active').first()
+        accessLog.access_date = accessLog.access_date.replace(tzinfo=timezone.utc)
         accessLog.return_date = datetime.now(timezone.utc)
+        accessLog.read_time = (accessLog.return_date - accessLog.access_date).seconds
+        print(accessLog.read_time)
         accessLog.status = status
         db.session.commit()
         request = Request.query.filter_by(user_id=user_id, book_id=book_id).first()
@@ -325,10 +354,107 @@ class AccessLogResource(Resource):
         accessLog = AccessLog.query.filter_by(id=id).first()
         if status == 'revoked':
             accessLog.expiry_date = datetime.now(timezone.utc)
-            accessLog.return_date = datetime.now(timezone.utc)
+            request = Request.query.filter_by(user_id=accessLog.user_id, book_id=accessLog.book_id).first()
+            db.session.delete(request)
+        accessLog.return_date = datetime.now(timezone.utc)
+        accessLog.access_date = accessLog.access_date.replace(tzinfo=timezone.utc)
+        accessLog.read_time = (accessLog.return_date - accessLog.access_date).seconds
+        print(accessLog.read_time)
         accessLog.status = status
         db.session.commit()
         return accessLog
+
+class UserStatsResource(Resource):
+    def get(self, user_id):
+        section_distribution = db.session.query(Section.name, db.func.count(Book.id), db.func.sum(AccessLog.read_time)) \
+            .join(Book, Section.id == Book.section_id) \
+            .join(AccessLog, Book.id == AccessLog.book_id) \
+            .filter(AccessLog.user_id == user_id) \
+            .group_by(Section.name) \
+            .all()
+        
+        section_distribution_serial = []
+        for section_name, book_count, reading_time in section_distribution:
+            section_distribution_serial.append({
+                'section_name': section_name,
+                'book_count': book_count,
+                'reading_time': reading_time or 0 
+            })
+
+        reading_time = db.session.query(db.func.sum(AccessLog.read_time)) \
+        .filter(AccessLog.user_id == user_id, AccessLog.status.in_(['returned','revoked','revoked-Acknowledged'])) \
+        .scalar() or 0
+
+        top_rated_books = db.session.query(Book.title, db.func.avg(Feedback.rating)) \
+            .join(Feedback, Book.id == Feedback.book_id) \
+            .join(AccessLog, Book.id == AccessLog.book_id) \
+            .filter(Feedback.user_id == user_id, AccessLog.status.in_(['returned','revoked','revoked-Acknowledged'])) \
+            .group_by(Book.title) \
+            .order_by(db.func.avg(Feedback.rating).desc()) \
+            .limit(5) \
+            .all()
+        
+        top_rated_books_serial = [{'title': title, 'rating': avg_rating}
+                                       for title, avg_rating in top_rated_books]
+
+        most_requested_books = db.session.query(Book.title, db.func.count(AccessLog.id)) \
+            .join(AccessLog, Book.id == AccessLog.book_id) \
+            .filter(AccessLog.user_id == user_id, AccessLog.status.in_(['active','returned', 'revoked', 'revoked-Acknowledged'])) \
+            .group_by(Book.title) \
+            .order_by(db.func.count(AccessLog.id).desc()) \
+            .limit(5) \
+            .all()
+        
+        most_requested_books_serial = [{'title': title, 'count': count} for title, count in most_requested_books]
+        return jsonify({
+            'section_distribution': section_distribution_serial,
+            'reading_time': reading_time,
+            'top_rated_books': top_rated_books_serial,
+            'most_requested_books': most_requested_books_serial
+            })
+
+class LibrarianStatsResource(Resource):
+    def get(self):
+        total_books = Book.query.count()
+
+        total_sections = Section.query.count()
+
+        active_logs = AccessLog.query.filter_by(status='active').count()
+
+        section_distribution = db.session.query(Section.name, db.func.count(Book.id)) \
+            .join(Book, Section.id == Book.section_id) \
+            .join(AccessLog, Book.id == AccessLog.book_id) \
+            .filter(AccessLog.status.in_(['active', 'revoked', 'expired', 'revoked-Acknowledged', 'returned' ])) \
+            .group_by(Section.name) \
+            .all()
+
+        section_names = [section[0] for section in section_distribution]
+        book_counts = [section[1] for section in section_distribution]
+
+        return jsonify({
+            'total_books': total_books,
+            'total_sections': total_sections,
+            'active_logs': active_logs,
+            'section_distribution': {
+                'section_names': section_names,
+                'book_counts': book_counts
+            }
+        })
+    
+class FeedbackResource(Resource):
+    @marshal_with(request_fields)
+    @auth_token_required
+    def post(self):
+        args = feedback_parser.parse_args()
+        book_id = args['book_id']
+        user_id = args['user_id']
+        rating = args['rating']
+        comment = args['comment']
+        book = Book.query.get_or_404(book_id)
+        feedback = Feedback(user_id=user_id, book_id=book_id, rating=rating, comment=comment, created_at=datetime.now(timezone.utc))
+        db.session.add(feedback)
+        db.session.commit()
+        return feedback, 201
     
 
 api.add_resource(UserListResource, '/users/all')
@@ -347,3 +473,8 @@ api.add_resource(UserRequestsResource, '/requests')
 
 api.add_resource(UserAccessLogResource, '/logs')
 api.add_resource(AccessLogResource, '/admin/logs')
+
+api.add_resource(UserStatsResource, '/stats/<int:user_id>')
+api.add_resource(LibrarianStatsResource, '/admin/stats')
+
+api.add_resource(FeedbackResource, '/feedback')

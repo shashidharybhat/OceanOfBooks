@@ -8,6 +8,7 @@ from applications.security import user_datastore, security
 from flask_security.utils import hash_password
 from config import LocalDevelopmentConfig
 from applications.workers import celery_init_app
+from applications.cache import cache_init_app
 import flask_excel as excel
 
 app = None
@@ -22,6 +23,7 @@ def create_app():
 def registerExtensions(app):
     db.init_app(app)
     api.init_app(app) 
+    cache_init_app(app)
     excel.init_excel(app)
     security.init_app(app, user_datastore)
     migrate.init_app(app, db, render_as_batch=True)

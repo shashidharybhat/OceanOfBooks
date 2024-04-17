@@ -8,7 +8,8 @@ const AdminDashboard = {
         <div class="flex-shrink-1">
           <button @click.prevent="openBookModal(section.id)" class="align-items-center btn btn-info btn-sm">Add Book</button>
           <button @click.prevent="openSectionEditModal(section.id)" class="align-items-center btn btn-warning btn-sm">Edit Section</button>
-        </div>
+          <button @click.prevent="deleteSection(section.id)" class="align-items-center btn btn-danger btn-sm">Delete Section</button>
+          </div>
       </div>
       <div v-if="books.length">
         <div class="row mt-4 mb-4 row-cols-4">
@@ -21,6 +22,7 @@ const AdminDashboard = {
                       <p class="small">Section: {{ getSectionName(book.section_id) }}</p>
                       <p class="small">Author: {{ book.author }}</p>
                       <p class="small">Availability: {{ book.stock }}</p>
+                      <button @click.prevent="deleteBook(book.id)" class="btn btn-danger btn-sm">Delete Book</button>
                     </div>
                   </div>
                 </div>
@@ -247,9 +249,39 @@ const AdminDashboard = {
           },
           body: JSON.stringify({ name: this.newSection.name, description: this.newSection.desc })
         });
+        this.newSection = {
+          name: '',
+          desc: ''
+        };
         this.fetchSections();
       } catch (error) {
         console.error('Error adding section:', error);
+      }
+    },
+    async deleteSection(sectionId) {
+      try {
+        const response = await fetch(`/api/sections/${sectionId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authentication-Token': localStorage.getItem('auth-token')
+          }
+        });
+        this.fetchSections();
+      } catch (error) {
+        console.error('Error deleting section:', error);
+      }
+    },
+    async deleteBook(bookId) {
+      try {
+        const response = await fetch(`/api/books/${bookId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authentication-Token': localStorage.getItem('auth-token')
+          }
+        });
+        this.fetchBooks();
+      } catch (error) {
+        console.error('Error deleting book:', error);
       }
     },
     getSectionName(sectionId) {

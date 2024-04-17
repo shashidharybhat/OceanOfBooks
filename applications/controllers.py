@@ -4,8 +4,9 @@ from flask_security.utils import hash_password, verify_password
 from applications.models import User, Book, Section, Request, AccessLog
 from applications.security import user_datastore as datastore
 from flask_security import auth_token_required, current_user, roles_required, auth_required, logout_user, login_user
-from applications.tasks import sendTestEmail
 import flask_excel as excel
+from datetime import datetime, timezone
+from applications.extensions import db
 
 @app.route('/')
 @app.route('/home')
@@ -26,6 +27,9 @@ def login():
 
     if verify_password(data.get("password"), user.password):
         login_user(user)
+        user.last_login_at = user.current_login_at
+        user.current_login_at = datetime.now(timezone.utc)
+        db.session.commit()
         return jsonify({"token": user.get_auth_token(), "email": user.email, "role": user.roles[0].name, "id": user.id})
     else:
         return jsonify({"message": "Wrong Password"}), 400

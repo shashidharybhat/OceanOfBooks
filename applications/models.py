@@ -74,6 +74,7 @@ class AccessLog(db.Model):
     return_date = db.Column(db.DateTime)
     expiry_date = db.Column(db.DateTime, nullable=False)
     status = db.Column(db.String(20), nullable=False, default='active')  # 'active', 'expired', 'revoked', 'returned'
+    read_time = db.Column(db.Integer, default=0)  # in seconds
 
 class Feedback(db.Model):
     __tablename__ = 'feedback'

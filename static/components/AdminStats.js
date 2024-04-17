@@ -1,30 +1,15 @@
-
-const profile = {
+const AdminStats = {
     template: `
     <div class="container mt-5">
-    <h1 class="text-center mb-4">User Statistics</h1>
+    <h1 class="text-center mb-4">Librarian Statistics</h1>
     <div v-if="loading" class="text-center">Loading...</div>
     <div v-else>
-      <p class="mb-3">Reading Time: {{ formatReadingTime(stats.reading_time) }}</p>
-      
-      <div class="mb-4">
-        <h3>Top Rated Books</h3>
-        <ul class="list-group">
-          <li v-for="(book, index) in stats.top_rated_books" :key="index" class="list-group-item">
-            {{ book.title }} - Rating: {{ book.rating }}
-          </li>
-        </ul>
-      </div>
-      
-      <div class="mb-4">
-        <h3>Most Requested Books</h3>
-        <ul class="list-group">
-          <li v-for="(book, index) in stats.most_requested_books" :key="index" class="list-group-item">
-            {{ book.title }} - Requests: {{ book.count}}
-          </li>
-        </ul>
-      </div>
-      
+      <p class="mb-3">Total Books: {{ stats.total_books }}</p>
+      <p class="mb-3">Total Sections: {{ stats.total_sections }}</p>
+      <p class="mb-3">Active Readers: {{ stats.active_logs }}</p>
+      <p class="mb-3">Pending Requests: {{ stats.pending_requests }}</p>
+      <p class="mb-3">Denied Requests: {{ stats.denied_requests }}</p>
+
       <div class="mb-4">
         <h3>Section Distribution</h3>
         <div class="chart-container" style="max-width: 400px; max-height: 400px;">
@@ -36,15 +21,12 @@ const profile = {
     `,
     data() {
         return {
-            profile: {},
-            success: true,
-            error: "Something went wrong with the request.",
             stats: null,
             loading: true
         }
     },
     async mounted() {
-        const response = await fetch('/api/stats/' + localStorage.getItem('user_id'), {
+        const response = await fetch('/api/admin/stats', {
             headers: {
                 'Content-Type': 'application/json',
                 'Authentication-Token': localStorage.getItem('auth-token')
@@ -52,21 +34,17 @@ const profile = {
         });
         if (response.ok) {
             this.stats = await response.json();
-            console.log(this.stats.top_rated_books);
             this.loading = false;
             this.$nextTick(() => {
-                this.SectionDistributionChart();
+                this.renderSectionDistributionChart();
             });
-        } else {
-            this.success = false;
         }
     },
-
     methods: {
-        SectionDistributionChart() {
+        renderSectionDistributionChart() {
             if (this.stats.section_distribution) {
-                const sectionNames = this.stats.section_distribution.map(section => section.section_name);
-                const bookCounts = this.stats.section_distribution.map(section => section.book_count);
+                const sectionNames = this.stats.section_distribution.section_names;
+                const bookCounts = this.stats.section_distribution.book_counts;
                 new Chart(document.getElementById('SectionDistributionChart'), {
                     type: 'pie',
                     data: {
@@ -87,14 +65,8 @@ const profile = {
                     }
                 });
             }
-        },
-        formatReadingTime(seconds) {
-            const days = Math.floor(seconds / 86400);
-            const hours = Math.floor((seconds % 86400) / 3600);
-            const minutes = Math.floor((seconds % 3600) / 60);
-            return `${days} days ${hours} hours ${minutes} minutes`;
         }
-    },
+    }
 }
 
-export default profile;
+export default AdminStats;
